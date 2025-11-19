@@ -4,9 +4,8 @@ import sys
 from nltk.stem import PorterStemmer
 from search.inverted_index import InvertedIndex
 from search.data_processing import (
-    data_read, stopwords_read, DataPreprocessor
+    data_read, stopwords_read, DataPreprocessor, BM25_K1, BM25_B
 )
-
 
 def load_data(db: InvertedIndex) -> None:
     try:
@@ -34,6 +33,19 @@ def main() -> None:
     tfidf_parser = subparsers.add_parser("tfidf", help="Calculate the 'Term and Inverse Document Frequency score for the specified keywords'")
     tfidf_parser.add_argument("doc_id", type=int, help="Provide a document id to find a TF_IDF score")
     tfidf_parser.add_argument("search_phrase", type=str, help="Specify a search phrase you would like to calculate the TF_IDF for")
+
+    bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
+    bm25_idf_parser.add_argument("search_phrase", type=str, help="Term to get BM25 IDF score for")
+
+    bm25_tf_parser = subparsers.add_parser("bm25tf", help="Get BM25 TF Score for a given document ID and term")
+    bm25_tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("search_phrase", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument("k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter")
+    bm25_tf_parser.add_argument("b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter")
+
+    bm25search_parser = subparsers.add_parser("bm25search", help="Search movies using full BM25 scoring")
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    bm25search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="Limit result to N")
 
     args = parser.parse_args()
     stopwords = stopwords_read("data/stopwords.txt")
@@ -92,6 +104,32 @@ def main() -> None:
             search_phrase = args.search_phrase
             result = inverted_index.get_tf(doc_id, search_phrase) * inverted_index.get_idf(search_phrase)
             print(f"TF-IDF score of '{search_phrase}' in document '{doc_id}': {result:.2f}")
+
+        case "bm25tf":
+            load_data(inverted_index)
+
+            doc_id = args.doc_id
+            search_phrase = args.search_phrase
+            k1 = args.k1
+            b = args.b
+            result = inverted_index.get_bm25_tf(doc_id, search_phrase, k1, b)
+            print(f"BM25 TF Score of '{search_phrase}' in document '{doc_id}': {result:.2f}")
+
+        case "bm25idf":
+            load_data(inverted_index)
+
+            search_phrase = args.search_phrase
+            result = inverted_index.get_bm25_idf(search_phrase)
+            print(f"BM25 IDF score of '{search_phrase}': {result:.2f}")
+
+        case "bm25search":
+            load_data(inverted_index)
+            query = args.query
+            limit = args.limit
+
+            result = inverted_index.bm25_search(query, limit)
+            for element in result:
+                print(element)
 
         case _:
             parser.print_help()

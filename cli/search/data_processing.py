@@ -2,6 +2,9 @@ import json
 import string
 from nltk.stem import PorterStemmer
 
+BM25_K1 = 1.5
+BM25_B = 0.75
+
 def data_read(file_name: str) -> dict[str, list[dict]]:
     with open(file_name, "r") as file:
         return json.load(file)
