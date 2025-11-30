@@ -1,6 +1,7 @@
 import argparse
 
 from search.data_processing import data_read
+from lib.chunking import basic_chunking
 from lib.semantic_search import (
     SemanticSearch,
     verify_model,
@@ -26,6 +27,10 @@ def main():
     embed_search_parser = subparsers.add_parser("search", help="Search the result based on semantic vectors")
     embed_search_parser.add_argument("query", help="Query for the embedding search")
     embed_search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="The number of element in result data")
+
+    chunk_parser = subparsers.add_parser("chunk", help="Split the text into chunks")
+    chunk_parser.add_argument("text", help="Specify text for the chunking")
+    chunk_parser.add_argument("--chunk-size", type=int, nargs="?", default=200, help="The size of an individual chunk")
 
     args = parser.parse_args()
 
@@ -56,7 +61,13 @@ def main():
                 print(f"{index}. {element[1]['title']} (score: {element[0]:.4f})")
                 print(f"   {element[1]['description'][:80]}\n")
 
+        case "chunk":
+            text = args.text
+            size = args.chunk_size
 
+            print(f"Chunking {len(text)} characters")
+            for index, chunk in enumerate(basic_chunking(text, size), start=1):
+                print(f"{index}. {chunk}")
 
         case _:
             parser.print_help()
