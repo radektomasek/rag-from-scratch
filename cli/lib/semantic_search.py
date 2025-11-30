@@ -7,6 +7,16 @@ from .utils import data_read
 cache_dir = './cache'
 db_file = 'movie_embeddings.npy'
 
+def cosine_similarity(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    return dot_product / (norm1 * norm2)
+
 class SemanticSearch:
     def __init__(self):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -41,10 +51,25 @@ class SemanticSearch:
     def load_or_create_embeddings(self, documents: list[dict]):
         if os.path.exists(os.path.join(cache_dir, db_file)):
             self.embeddings = np.load(os.path.join(cache_dir, db_file))
-            if len(documents) == len(self.embeddings):
+            self.documents = documents
+            if len(self.documents) == len(self.embeddings):
                 return self.embeddings
 
         return self.build_embeddings(documents)
+
+    def search(self, query, limit):
+        if self.embeddings is None:
+            raise ValueError("No embeddings loaded. Call `load_or_create_embeddings` first")
+
+        similarities = []
+
+        query_embeddings = self.generate_embedding(query)
+        for i, doc_embeddings in enumerate(self.embeddings):
+            similarity = cosine_similarity(query_embeddings, doc_embeddings)
+            similarities.append((similarity, self.documents[i]))
+
+        results = sorted(similarities, key=lambda x: x[0], reverse=True)
+        return results[:limit]
 
 def verify_model(semantic_search: SemanticSearch):
     print(f"Model loaded: {semantic_search.model}")
@@ -65,4 +90,14 @@ def verify_embeddings():
 
     print(f"Number of docs: {len(documents)}")
     print(f"Embeddings shape: {embeddings.shape[0]} vectors in {embeddings.shape[1]} dimensions")
+
+def embed_query_text(query: str):
+    semantic_search = SemanticSearch()
+    embedding = semantic_search.generate_embedding(query)
+
+    print(f"Query: {query}")
+    print(f"First 5 dimensions: {embedding[:5]}")
+    print(f"Shape: {embedding.shape}")
+
+
 
