@@ -69,7 +69,8 @@ class ChunkedSemanticSearch(SemanticSearch):
             self.chunk_embeddings = np.load(os.path.join(cache_dir, db_file))
 
             with open(os.path.join(cache_dir, metadata_json), "r") as file:
-                self.chunk_metadata = json.load(file)
+                data = json.load(file)
+                self.chunk_metadata = data["chunks"]
 
             return self.chunk_embeddings
 

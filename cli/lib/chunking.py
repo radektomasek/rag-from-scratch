@@ -18,8 +18,10 @@ def semantic_chunking(text: str, size: int, overlap: int) -> list[str]:
     chunks = []
 
     while start_index < len(elements):
-        chunk = " ".join(elements[start_index:start_index + size])
-        chunks.append(chunk)
+        chunk_sentences = elements[start_index:start_index + size]
+        if chunks and len(chunk_sentences) <= overlap:
+            break
+        chunks.append(" ".join(chunk_sentences))
         start_index += size - overlap
 
     return chunks
