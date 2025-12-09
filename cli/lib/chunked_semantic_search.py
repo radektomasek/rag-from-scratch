@@ -4,11 +4,13 @@ import os
 import numpy as np
 
 from .chunking import semantic_chunking
-from .semantic_search import SemanticSearch
+from .semantic_search import SemanticSearch, cosine_similarity
 
 cache_dir = './cache'
 db_file = 'chunk_embeddings.npy'
 metadata_json = 'chunk_metadata.json'
+
+SCORE_PRECISION = 4
 
 class ChunkedSemanticSearch(SemanticSearch):
     def __init__(self, model_name = "all-MiniLM-L6-v2") -> None:
@@ -75,3 +77,43 @@ class ChunkedSemanticSearch(SemanticSearch):
             return self.chunk_embeddings
 
         return self.build_chunk_embeddings(documents)
+
+    def search_chunks(self, query: str, limit: int = 10):
+        query_embeddings = self.generate_embedding(query)
+        chunks_scores = []
+
+        for index, chunk_embedding in enumerate(self.chunk_embeddings):
+            chunk_idx = self.chunk_metadata[index]["chunk_idx"]
+            movie_idx = self.chunk_metadata[index]["movie_idx"]
+            score = cosine_similarity(chunk_embedding, query_embeddings)
+            chunks_scores.append({
+                "chunk_idx": chunk_idx,
+                "movie_idx": movie_idx,
+                "score": score
+            })
+
+        movie_scores = {}
+        for chunks_score in chunks_scores:
+            movie_idx = chunks_score["movie_idx"]
+            movie_score = movie_scores.get(movie_idx)
+            if not movie_score:
+                movie_scores[movie_idx] = chunks_score["score"]
+            else:
+                existing_score = movie_scores[movie_idx]
+                new_score = chunks_score["score"]
+                movie_scores[movie_idx] = new_score if new_score > existing_score else existing_score
+
+        sorted_result = sorted(movie_scores.items(), key=lambda x: x[1], reverse=True)
+        results = []
+        for element in sorted_result[0:limit]:
+            document = self.documents[element[0]]
+            result = {
+                "id": element[0],
+                "title": document["title"],
+                "document": document["description"][:100],
+                "score": round(element[1], SCORE_PRECISION),
+                "metadata": {}
+            }
+            results.append(result)
+
+        return results

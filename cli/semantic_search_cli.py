@@ -39,6 +39,10 @@ def main():
     semantic_chunk_parser.add_argument("--max-chunk-size", type=int, nargs="?", default=4, help="The size of a chunk object")
     semantic_chunk_parser.add_argument("--overlap", type=int, nargs="?", default=0, help="Specify an overlap of words in chunking")
 
+    search_chunked_parser = subparsers.add_parser("search_chunked", help="Chunked semantic search")
+    search_chunked_parser.add_argument("query", help="Specify query for the semantic search")
+    search_chunked_parser.add_argument("--limit", type=int, nargs="?", default=5, help="The number of element in result data")
+
     subparsers.add_parser("embed_chunks", help="Prepare embeddings per chunk")
 
     args = parser.parse_args()
@@ -95,6 +99,21 @@ def main():
             chunked_semantic_search = ChunkedSemanticSearch()
             embeddings = chunked_semantic_search.load_or_create_chunk_embeddings(documents)
             print(f"Generated {len(embeddings)} chunked embeddings")
+
+        case "search_chunked":
+            query = args.query
+            limit = args.limit
+
+            data = data_read("data/movies.json")
+            documents = data["movies"]
+
+            chunked_semantic_search = ChunkedSemanticSearch()
+            chunked_semantic_search.load_or_create_chunk_embeddings(documents)
+            search_result = chunked_semantic_search.search_chunks(query, limit)
+
+            for index, element in enumerate(search_result):
+                print(f"\n{index}. {element['title']} (score: {element['score']:.4f})")
+                print(f"   {element['document']}...")
 
         case _:
             parser.print_help()
