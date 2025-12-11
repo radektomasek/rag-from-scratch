@@ -1,4 +1,5 @@
 import re
+import string
 
 def basic_chunking(text: str, size: int, overlap: int) -> list[str]:
     elements = text.split()
@@ -13,7 +14,22 @@ def basic_chunking(text: str, size: int, overlap: int) -> list[str]:
     return chunks
 
 def semantic_chunking(text: str, size: int, overlap: int) -> list[str]:
-    elements = re.split(r"(?<=[.!?])\s+", text)
+    search_text = text.strip()
+    if len(search_text) == 0:
+        return []
+
+    elements = re.split(r"(?<=[.!?])\s+", text.strip())
+    if len(elements) == 1:
+        punc_character = len([char for char in string.punctuation if elements[0].endswith(char)]) > 0
+        elements[0] = f"{elements[0]}. " if not punc_character else elements[0]
+
+    elements = list(
+        filter(
+            lambda x: len(x) > 0,
+            list(map(lambda x: x.strip(), elements))
+        )
+    )
+
     start_index = 0
     chunks = []
 

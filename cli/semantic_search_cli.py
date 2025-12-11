@@ -88,6 +88,8 @@ def main():
             size = args.max_chunk_size
             overlap = args.overlap
 
+            print(text)
+
             print(f"Semantically chunking {len(text)} characters")
             for index, chunk in enumerate(semantic_chunking(text, size, overlap), start=1):
                 print(f"{index}. {chunk}")
