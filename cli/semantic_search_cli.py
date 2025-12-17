@@ -1,9 +1,9 @@
 import argparse
 
 from search.data_processing import data_read
-from lib.chunked_semantic_search import ChunkedSemanticSearch
-from lib.chunking import basic_chunking, semantic_chunking
-from lib.semantic_search import (
+from cli.search.chunked_semantic_search import ChunkedSemanticSearch
+from cli.search.chunking import basic_chunking, semantic_chunking
+from cli.search.semantic_search import (
     SemanticSearch,
     verify_model,
     embed_text,

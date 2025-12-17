@@ -30,6 +30,7 @@ class InvertedIndex:
         self.doc_lengths = {}
         self.term_frequencies = {}
         self.data_preprocessor = data_preprocessor
+        self.index_path = "cache/index.pkl"
 
     def __add_document(self, doc_id: int, text: str):
         tokens = text.split()
