@@ -26,7 +26,7 @@ def extract_id_from_idx(element: str) -> int:
     return int(element[element.index('(') + 1:element.index(')')])
 
 def extract_score_from_idx(element: str) -> float:
-    return float(element[element.rindex(':') + 2])
+    return float(element[element.rindex(':') + 1 :].strip())
 
 def hybrid_score(bm25_score, semantic_score, alpha=0.5):
     return alpha * bm25_score + (1 - alpha) * semantic_score
@@ -61,8 +61,8 @@ class HybridSearch:
         ))
 
         semantic_search_results = list(map(
-            lambda x: (int(x[1]["id"]), float(x[0])),
-            self.semantic_search.search(query, limit * multiplier)
+            lambda x: (int(x["id"]), float(x["score"])),
+            self.semantic_search.search_chunks(query, limit * multiplier)
         ))
 
         normalized_bm25_scores = min_max_normalize(list(map(lambda x: x[1], inverted_index_results)))
@@ -72,14 +72,13 @@ class HybridSearch:
 
         for index, element in enumerate(inverted_index_results):
             key = element[0]
-            value = results.get(id, { "semantic_score": 0.0, "document": self.idx.docmap.get(key) })
+            value = results.get(key, { "semantic_score": 0.0, "document": self.idx.docmap.get(key) })
             value["keyword_score"] = normalized_bm25_scores[index]
             results[key] = value
 
-
         for index, element in enumerate(semantic_search_results):
             key = element[0]
-            value = results.get(id, { "keyword_score": 0.0, "document": self.idx.docmap.get(key) })
+            value = results.get(key, { "keyword_score": 0.0, "document": self.idx.docmap.get(key) })
             value["semantic_score"] = normalized_semantic_scores[index]
             results[key] = value
 

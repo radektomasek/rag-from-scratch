@@ -108,7 +108,7 @@ class ChunkedSemanticSearch(SemanticSearch):
         for element in sorted_result[0:limit]:
             document = self.documents[element[0]]
             result = {
-                "id": element[0],
+                "id": document["id"],
                 "title": document["title"],
                 "document": document["description"][:100],
                 "score": round(element[1], SCORE_PRECISION),

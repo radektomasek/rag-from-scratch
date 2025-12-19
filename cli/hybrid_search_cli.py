@@ -34,12 +34,12 @@ def main() -> None:
 
             results = hybrid_search.weighted_search(query, alpha, limit)
 
-            for result in results:
-                print(result["document"]["title"])
-
-
-
-
+            for index, result in enumerate(results, start=1):
+                print(f"{index}. ${result["document"]["title"]}")
+                print(f"   Hybrid Score: {result['hybrid_score']:.4f}")
+                print(f"   BM25: {result['keyword_score']:.4f}, Semantic: {result['semantic_score']:.4f}")
+                print(f"   {result["document"]["description"][:50]}...")
+                print("\n")
 
         case _:
             parser.print_help()
