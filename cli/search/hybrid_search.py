@@ -7,6 +7,7 @@ from .data_processing import (
 )
 from .chunked_semantic_search import ChunkedSemanticSearch
 
+multiplier = 500
 
 def min_max_normalize(scores: list[float]) -> list[float]:
     if len(scores) == 0:
@@ -21,6 +22,9 @@ def min_max_normalize(scores: list[float]) -> list[float]:
     return list(
         map(lambda score: (score - min_score) / (max_score - min_score), scores)
     )
+
+def rrf_score(rank, k=60):
+    return 1 / (k + rank)
 
 def extract_id_from_idx(element: str) -> int:
     return int(element[element.index('(') + 1:element.index(')')])
@@ -54,7 +58,6 @@ class HybridSearch:
         return self.idx.bm25_search(query, limit)
 
     def weighted_search(self, query, alpha, limit=5):
-        multiplier = 500
         inverted_index_results = list(map(
             lambda x: (extract_id_from_idx(x), extract_score_from_idx(x)) ,
             self._bm25_search(query, limit * multiplier)
@@ -89,5 +92,46 @@ class HybridSearch:
         return sorted(results.values(), key=lambda x: x["hybrid_score"], reverse=True)[:limit]
 
     def rrf_search(self, query, k, limit=10):
-        raise NotImplementedError("RRF hybrid search is mot implemented yet.")
+        inverted_index_results = list(map(
+            lambda x: (extract_id_from_idx(x), extract_score_from_idx(x)) ,
+            self._bm25_search(query, limit * multiplier)
+        ))
 
+        semantic_search_results = list(map(
+            lambda x: (int(x["id"]), float(x["score"])),
+            self.semantic_search.search_chunks(query, limit * multiplier)
+        ))
+
+        results = {}
+
+        for index, element in enumerate(sorted(inverted_index_results, key=lambda x: x[1], reverse=True), start=1):
+            key = element[0]
+            value = results.get(key, { "document": self.idx.docmap.get(key) })
+            value["bm25_rank"] = index
+            results[key] = value
+
+        for index, element in enumerate(sorted(semantic_search_results, key=lambda x: x[1], reverse=True), start=1):
+            key = element[0]
+            value = results.get(key, {"document": self.idx.docmap.get(key)})
+            value["semantic_rank"] = index
+            results[key] = value
+
+        for element in results.items():
+            value = element[1]
+
+            rrf_bm25 = 0.0
+            rrf_semantic = 0.0
+
+            bm25_rank = value.get("bm25_rank")
+            semantic_rank = value.get("semantic_rank")
+
+            if bm25_rank:
+                rrf_bm25 = rrf_score(bm25_rank, k)
+
+            if semantic_rank:
+                rrf_semantic = rrf_score(semantic_rank, k)
+
+            rrf_combined = rrf_bm25 + rrf_semantic
+            value["rrf_score"] = rrf_combined
+
+        return sorted(results.values(), key=lambda x: x["rrf_score"], reverse=True)[:limit]

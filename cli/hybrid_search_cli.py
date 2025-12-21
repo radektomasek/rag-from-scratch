@@ -57,9 +57,9 @@ def main() -> None:
             results = hybrid_search.rrf_search(query, k, limit)
 
             for index, result in enumerate(results, start=1):
-                print(f"{index}. ${result["document"]["title"]}")
+                print(f"{index}. {result["document"]["title"]}")
                 print(f"   RRF Score: {result["rrf_score"]:4f}")
-                print(f"   BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result['semantic_rank']}")
+                print(f"   BM25 Rank: {result.get("bm25_rank", 0)}, Semantic Rank: {result.get("semantic_rank", 0)}")
                 print(f"   {result["document"]["description"][:50]}...")
                 print("\n")
 
