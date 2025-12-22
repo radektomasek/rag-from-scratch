@@ -2,6 +2,7 @@ import argparse
 
 from search.utils import data_read
 from search.hybrid_search import HybridSearch, min_max_normalize
+from llm.gemini_client import query_spell_check_by_llm
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hybrid Search CLI")
@@ -19,6 +20,7 @@ def main() -> None:
     rrf_search_parser.add_argument("query", type=str, help="Search query")
     rrf_search_parser.add_argument("-k", type=int, nargs="?", default=60, help="The weight consideration factor constant")
     rrf_search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="Default limit is 5")
+    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell"], help="Query enhancement method")
 
     args = parser.parse_args()
 
@@ -50,6 +52,12 @@ def main() -> None:
             query = args.query
             k = args.k
             limit = args.limit
+            enhance = args.enhance
+
+            if enhance:
+                enhanced_query = query_spell_check_by_llm(query)
+                if query != enhanced_query:
+                    print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
 
             data = data_read("data/movies.json")
             hybrid_search = HybridSearch(data["movies"])

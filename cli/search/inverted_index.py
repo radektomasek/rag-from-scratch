@@ -112,7 +112,7 @@ class InvertedIndex:
         tokens = self.extract_tokens(query)
 
         for token in tokens:
-            for doc_id in list(self.index[token]):
+            for doc_id in list(self.index.get(token, [])):
                 value = scores.get(doc_id, 0.0)
                 scores[doc_id] = value + self.bm25(doc_id, token)
 
