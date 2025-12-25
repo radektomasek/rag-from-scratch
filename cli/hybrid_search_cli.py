@@ -1,11 +1,14 @@
 import argparse
+from time import sleep
 
 from search.utils import data_read
 from search.hybrid_search import HybridSearch, min_max_normalize
 from llm.gemini_client import (
     query_spell_check_by_llm,
     query_rewrite_by_llm,
-    query_expand_by_llm
+    query_expand_by_llm,
+    calculate_rerank_score_by_llm,
+    calculate_rerank_relevance_by_llm
 )
 
 def main() -> None:
@@ -25,6 +28,7 @@ def main() -> None:
     rrf_search_parser.add_argument("-k", type=int, nargs="?", default=60, help="The weight consideration factor constant")
     rrf_search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="Default limit is 5")
     rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite", "expand"], help="Query enhancement method")
+    rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch"], help="Reranking method for adjusting the results by LLM")
 
     args = parser.parse_args()
 
@@ -55,7 +59,9 @@ def main() -> None:
         case "rrf-search":
             query = args.query
             k = args.k
-            limit = args.limit
+            rerank_method = args.rerank_method
+            original_limit = args.limit
+            limit = original_limit * 5 if rerank_method else original_limit
             enhance = args.enhance
 
             enhanced_query = None
@@ -80,8 +86,25 @@ def main() -> None:
 
             results = hybrid_search.rrf_search(query, k, limit)
 
-            for index, result in enumerate(results, start=1):
+            if rerank_method == "individual":
+                for result in results:
+                    result["rerank_score"] = calculate_rerank_score_by_llm(query, result["document"])
+                    sleep(3)
+                results = sorted(results, key=lambda x: x["rerank_score"], reverse=True)
+            elif rerank_method == "batch":
+                rerank_ids = calculate_rerank_relevance_by_llm(query, results)
+                for result in results:
+                    result["rerank_rank"] = rerank_ids.index(result["document"]["id"]) + 1 if result["document"]["id"] in rerank_ids else 0
+                results = sorted(results, key=lambda x: x["rerank_rank"], reverse=False)
+
+            for index, result in enumerate(results[:original_limit], start=1):
+                rerank_score = result.get("rerank_score")
+                rerank_rank = result.get("rerank_rank")
                 print(f"{index}. {result["document"]["title"]}")
+                if rerank_score:
+                    print(f"   Rerank Score: {rerank_score:.4f}/10")
+                if rerank_rank:
+                    print(f"   Rerank Rank: {rerank_rank}")
                 print(f"   RRF Score: {result["rrf_score"]:4f}")
                 print(f"   BM25 Rank: {result.get("bm25_rank", 0)}, Semantic Rank: {result.get("semantic_rank", 0)}")
                 print(f"   {result["document"]["description"][:50]}...")
