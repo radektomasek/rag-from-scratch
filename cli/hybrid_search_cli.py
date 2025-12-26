@@ -1,6 +1,7 @@
 import argparse
 from time import sleep
 
+from search.reranking import cross_encoder_rerank
 from search.utils import data_read
 from search.hybrid_search import HybridSearch, min_max_normalize
 from llm.gemini_client import (
@@ -28,7 +29,7 @@ def main() -> None:
     rrf_search_parser.add_argument("-k", type=int, nargs="?", default=60, help="The weight consideration factor constant")
     rrf_search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="Default limit is 5")
     rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite", "expand"], help="Query enhancement method")
-    rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch"], help="Reranking method for adjusting the results by LLM")
+    rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch", "cross_encoder"], help="Reranking method for adjusting the results by LLM")
 
     args = parser.parse_args()
 
@@ -96,15 +97,24 @@ def main() -> None:
                 for result in results:
                     result["rerank_rank"] = rerank_ids.index(result["document"]["id"]) + 1 if result["document"]["id"] in rerank_ids else 0
                 results = sorted(results, key=lambda x: x["rerank_rank"], reverse=False)
+            elif rerank_method == "cross_encoder":
+                pairs = [[query, f"{result['document'].get("title", "")} - {result['document']}"] for result in results]
+                scores = cross_encoder_rerank(pairs)
+                for result, score in zip(results, scores):
+                    result["cross_encoder_score"] = score
+                results = sorted(results, key=lambda x: x["cross_encoder_score"], reverse=True)
 
             for index, result in enumerate(results[:original_limit], start=1):
                 rerank_score = result.get("rerank_score")
                 rerank_rank = result.get("rerank_rank")
+                cross_encoder_score = result.get("cross_encoder_score")
                 print(f"{index}. {result["document"]["title"]}")
                 if rerank_score:
                     print(f"   Rerank Score: {rerank_score:.4f}/10")
                 if rerank_rank:
                     print(f"   Rerank Rank: {rerank_rank}")
+                if cross_encoder_score:
+                    print(f"   Cross Encoder Score: {cross_encoder_score:.4f}")
                 print(f"   RRF Score: {result["rrf_score"]:4f}")
                 print(f"   BM25 Rank: {result.get("bm25_rank", 0)}, Semantic Rank: {result.get("semantic_rank", 0)}")
                 print(f"   {result["document"]["description"][:50]}...")
