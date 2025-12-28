@@ -2,14 +2,15 @@ import argparse
 from time import sleep
 
 from search.reranking import cross_encoder_rerank
-from search.utils import data_read
+from search.utils import data_read, debug_rrf
 from search.hybrid_search import HybridSearch, min_max_normalize
 from llm.gemini_client import (
     query_spell_check_by_llm,
     query_rewrite_by_llm,
     query_expand_by_llm,
     calculate_rerank_score_by_llm,
-    calculate_rerank_relevance_by_llm
+    calculate_rerank_relevance_by_llm,
+    evaluate_results_by_llm
 )
 
 def main() -> None:
@@ -30,6 +31,7 @@ def main() -> None:
     rrf_search_parser.add_argument("--limit", type=int, nargs="?", default=5, help="Default limit is 5")
     rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite", "expand"], help="Query enhancement method")
     rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch", "cross_encoder"], help="Reranking method for adjusting the results by LLM")
+    rrf_search_parser.add_argument("--evaluate", type=bool, nargs="?", default=False, help="Evaluate the reranking results by LLM")
 
     args = parser.parse_args()
 
@@ -58,7 +60,7 @@ def main() -> None:
                 print("\n")
 
         case "rrf-search":
-            query = args.query
+            original_query = args.query
             k = args.k
             rerank_method = args.rerank_method
             original_limit = args.limit
@@ -69,23 +71,24 @@ def main() -> None:
 
             if enhance:
                 if enhance == "spell":
-                    enhanced_query = query_spell_check_by_llm(query)
-                    if query != enhanced_query:
-                        print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                    enhanced_query = query_spell_check_by_llm(original_query)
+                    if original_query != enhanced_query:
+                        print(f"Enhanced query ({enhance}): '{original_query}' -> '{enhanced_query}'\n")
                 elif enhance == "rewrite":
-                    enhanced_query = query_rewrite_by_llm(query)
-                    if query != enhanced_query:
-                        print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                    enhanced_query = query_rewrite_by_llm(original_query)
+                    if original_query != enhanced_query:
+                        print(f"Enhanced query ({enhance}): '{original_query}' -> '{enhanced_query}'\n")
                 elif enhance == "expand":
-                    enhanced_query = query_expand_by_llm(query)
-                    if query != enhanced_query:
-                        print(f"Enhanced query ({enhance}): '{query}' -> '{enhanced_query}'\n")
+                    enhanced_query = query_expand_by_llm(original_query)
+                    if original_query != enhanced_query:
+                        print(f"Enhanced query ({enhance}): '{original_query}' -> '{enhanced_query}'\n")
 
-            query = enhanced_query or query
+            query = enhanced_query or original_query
             data = data_read("data/movies.json")
             hybrid_search = HybridSearch(data["movies"])
 
-            results = hybrid_search.rrf_search(query, k, limit)
+            original_results = hybrid_search.rrf_search(query, k, limit)
+            results = original_results
 
             if rerank_method == "individual":
                 for result in results:
@@ -119,6 +122,12 @@ def main() -> None:
                 print(f"   BM25 Rank: {result.get("bm25_rank", 0)}, Semantic Rank: {result.get("semantic_rank", 0)}")
                 print(f"   {result["document"]["description"][:50]}...")
                 print("\n")
+
+            # debug_rrf(original_query, enhanced_query, original_results, results)
+
+            evaluation_results = evaluate_results_by_llm(query, results)
+            for index, element in enumerate(zip(results, evaluation_results), start=1):
+                print(f"{index}. {element[0]["document"]["title"]}: {element[1]}/3")
 
         case _:
             parser.print_help()
