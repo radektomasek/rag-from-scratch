@@ -130,6 +130,80 @@ Return ONLY the scores in the same order you were given the documents. Return a 
 """.strip()
     )
 
+def augmented_generation_prompt(query: str, docs: list[dict]) -> str:
+    return (
+        f"""
+Answer the question or provide information based on the provided documents. This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+Query: {query}
+
+Documents:
+{docs}
+
+Provide a comprehensive answer that addresses the query:
+""".strip()
+    )
+
+def summarize_results_prompt(query: str, docs: list[dict]) -> str:
+    return (
+        f"""
+Provide information useful to this query by synthesizing information from multiple search results in detail.
+The goal is to provide comprehensive information so that users know what their options are.
+Your response should be information-dense and concise, with several key pieces of information about the genre, plot, etc. of each movie.
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+Query: {query}
+Search Results:
+{docs}
+Provide a comprehensive 3–4 sentence answer that combines information from multiple sources:
+    """
+    )
+
+def citation_adding_prompt(query: str, docs: list[dict]) -> str:
+    return (
+        f"""Answer the question or provide information based on the provided documents.
+
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+If not enough information is available to give a good answer, say so but give as good of an answer as you can while citing the sources you have.
+
+Query: {query}
+
+Documents:
+{docs}
+
+Instructions:
+- Provide a comprehensive answer that addresses the query
+- Cite sources using [1], [2], etc. format when referencing information
+- If sources disagree, mention the different viewpoints
+- If the answer isn't in the documents, say "I don't have enough information"
+- Be direct and informative
+
+Answer:
+    """
+    )
+
+def question_answering_prompt(question: str, docs: list[dict]) -> str:
+    return (
+        f"""
+Answer the user's question based on the provided movies that are available on Hoopla.
+
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+Question: {question}
+
+Documents:
+{docs}
+
+Instructions:
+- Answer questions directly and concisely
+- Be casual and conversational
+- Don't be cringe or hype-y
+- Talk like a normal person would in a chat conversation
+
+Answer:
+    """
+    )
+
 def query_spell_check_by_llm(query: str):
     model = "gemini-2.0-flash-001"
     prompt = [spell_check_prompt(query)]
@@ -150,7 +224,6 @@ def query_expand_by_llm(query: str):
 
     result = client.models.generate_content(model=model, contents=prompt)
     return result.text
-
 
 def calculate_rerank_score_by_llm(query: str, doc: dict):
     model = "gemini-2.0-flash-001"
@@ -184,4 +257,58 @@ def evaluate_results_by_llm(query: str, results: list[dict]):
 
     return json.loads(result.text) or []
 
+def augment_resuts_by_llm(query: str, docs: list[dict]):
+    model = "gemini-2.0-flash-001"
+    data = list(
+        map(
+            lambda x: {
+                "title": x["document"]["title"],
+                "description": x["document"]["description"]},
+            docs)
+    )
+    prompt = [augmented_generation_prompt(query, data)]
+    result = client.models.generate_content(model=model, contents=prompt)
 
+    return result.text
+
+def summarize_results_by_llm(query: str, docs: list[dict]):
+    model = "gemini-2.0-flash-001"
+    data = list(
+        map(
+            lambda x: {
+                "title": x["document"]["title"],
+                "description": x["document"]["description"]},
+            docs)
+    )
+    prompt = [summarize_results_prompt(query, data)]
+    result = client.models.generate_content(model=model, contents=prompt)
+
+    return result.text
+
+def enhance_results_by_citations(query: str, docs: list[dict]):
+    model = "gemini-2.0-flash-001"
+    data = list(
+        map(
+            lambda x: {
+                "title": x["document"]["title"],
+                "description": x["document"]["description"]},
+            docs)
+    )
+    prompt = [citation_adding_prompt(query, data)]
+    result = client.models.generate_content(model=model, contents=prompt)
+
+    return result.text
+
+def question_answering_by_llm(query: str, docs: list[dict]):
+    model = "gemini-2.0-flash-001"
+    data = list(
+        map(
+            lambda x: {
+                "title": x["document"]["title"],
+                "description": x["document"]["description"]},
+            docs)
+    )
+    prompt = [question_answering_prompt(query, docs)]
+    result = client.models.generate_content(model=model, contents=prompt)
+
+    return result.text
