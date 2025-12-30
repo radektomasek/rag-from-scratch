@@ -3,6 +3,7 @@ import os
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -204,6 +205,16 @@ Answer:
     """
     )
 
+def multimodal_basic_prompt() -> str:
+    return (
+        """
+Given the included image and text query, rewrite the text query to improve search results from a movie database. Make sure to:
+- Synthesize visual and textual information
+- Focus on movie-specific details (actors, scenes, style, etc.)
+- Return only the rewritten query, without any additional commentary
+        """
+    )
+
 def query_spell_check_by_llm(query: str):
     model = "gemini-2.0-flash-001"
     prompt = [spell_check_prompt(query)]
@@ -312,3 +323,15 @@ def question_answering_by_llm(query: str, docs: list[dict]):
     result = client.models.generate_content(model=model, contents=prompt)
 
     return result.text
+
+def multimodal_llm_query(query: str, image: bytes, mime: str):
+    model = "gemini-2.0-flash-001"
+    system_prompt = multimodal_basic_prompt()
+    parts = [
+        system_prompt,
+        types.Part.from_bytes(data=image, mime_type=mime),
+        query.strip()
+    ]
+    result = client.models.generate_content(model=model, contents=parts)
+
+    return result.text.strip(), result.usage_metadata
